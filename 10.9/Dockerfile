@@ -20,6 +20,7 @@ ARG GPG_KEYS=177F4010FE56CA3336300305F1656F24C74CD1D8
 # install "xz-utils" for .sql.xz docker-entrypoint-initdb.d files
 # install "zstd" for .sql.zst docker-entrypoint-initdb.d files
 # hadolint ignore=SC2086
+COPY su-exec-0.2.tar.gz /tmp/
 RUN set -eux; \
 	apt-get update; \
 	DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
@@ -35,11 +36,17 @@ RUN set -eux; \
 	apt-get install -y --no-install-recommends \
 		dirmngr \
 		gpg-agent \
+		gcc \
+		make \
+		build-essential \
 		wget; \
 	rm -rf /var/lib/apt/lists/*; \
 	dpkgArch="$(dpkg --print-architecture | awk -F- '{ print $NF }')"; \
-	wget -q -O /usr/local/bin/gosu "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$dpkgArch"; \
-	wget -q -O /usr/local/bin/gosu.asc "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$dpkgArch.asc"; \
+	tar -zxvf /tmp/su-exec-0.2.tar.gz -C /tmp; \
+	cd /tmp/su-exec-0.2 && make; \
+	cp /tmp/su-exec-0.2/su-exec /usr/local/bin/su-exec; \
+	# wget -q -O /usr/local/bin/gosu "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$dpkgArch"; \
+	# wget -q -O /usr/local/bin/gosu.asc "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$dpkgArch.asc"; \
 	GNUPGHOME="$(mktemp -d)"; \
 	export GNUPGHOME; \
 	gpg --batch --keyserver hkps://keys.openpgp.org --recv-keys B42F6819007F00F88E364FD4036A9C25BF357DD4; \
@@ -50,15 +57,16 @@ RUN set -eux; \
 	if command -v gpgconf >/dev/null; then \
 		gpgconf --kill all; \
 	fi; \
-	gpg --batch --verify /usr/local/bin/gosu.asc /usr/local/bin/gosu; \
+	# gpg --batch --verify /usr/local/bin/gosu.asc /usr/local/bin/gosu; \
 	gpgconf --kill all; \
-	rm -rf "$GNUPGHOME" /usr/local/bin/gosu.asc; \
+	# rm -rf "$GNUPGHOME" /usr/local/bin/gosu.asc; \
 	apt-mark auto '.*' > /dev/null; \
 	[ -z "$savedAptMark" ] ||	apt-mark manual $savedAptMark >/dev/null; \
 	apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false; \
-	chmod +x /usr/local/bin/gosu; \
-	gosu --version; \
-	gosu nobody true
+	# chmod +x /usr/local/bin/gosu; \
+	# gosu --version; \
+	# gosu nobody true
+	su-exec nobody true;
 
 RUN mkdir /docker-entrypoint-initdb.d
 
